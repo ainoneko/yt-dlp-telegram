@@ -1,3 +1,4 @@
+import subprocess
 from urllib.parse import urlparse
 import datetime
 import telebot
@@ -63,22 +64,58 @@ def download_video(message, url, audio=False, format_id="mp4"):
 
         msg = bot.reply_to(message, 'Downloading...')
         video_title = round(time.time() * 1000)
-        with yt_dlp.YoutubeDL({'format': format_id, 'outtmpl': f'outputs/{video_title}.%(ext)s', 'progress_hooks': [progress], 'postprocessors': [{  # Extract audio using ffmpeg
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-        }] if audio else [], 'max_filesize': config.max_filesize}) as ydl:
+        with yt_dlp.YoutubeDL({
+            'format': format_id, 'outtmpl': f'outputs/{video_title}.%(ext)s', 'progress_hooks': [progress],
+            'postprocessors': [{  # Extract audio using ffmpeg
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                }] if audio else [],
+            'max_filesize': config.MAX_FILESIZE_FOR_DL if audio else config.max_filesize
+        }) as ydl:
             info = ydl.extract_info(url, download=True)
             try:
                 bot.edit_message_text(
                     chat_id=message.chat.id, message_id=msg.message_id, text='Sending file to Telegram...')
                 try:
-                    if audio:
+                    file_downloaded = info['requested_downloads'][0]['filepath']
+                    file_size = os.path.getsize(file_downloaded)
+                    if audio and file_size > config.MAX_FILESIZE_FOR_TG:
+                        # bot.edit_message_text(
+                        #     chat_id=message.chat.id, message_id=msg.message_id,
+                        #     text=f"AUDIO file is too big *{round(config.max_filesize / 1_000_000, 3)}MB* is more than *{round(config.max_filesize / 1_000_000)}MB*",
+                        #     parse_mode="MARKDOWN")
+
+                        # Cut to smaller parts
+                        # command = f'ffmpeg -i {file_downloaded} -f segment -segment_time {config.SECONDS_IN_CHUNK} -c copy part_%03d.mp3'
+                        commands = ['ffmpeg', '-i', file_downloaded, '-f', 'segment', '-segment_time',
+                                    str(config.SECONDS_IN_CHUNK),
+                                    '-c', 'copy', 'outputs/part_%03d.mp3']
+
+                        xxx = subprocess.run(commands)
+                        print(xxx)
+                        for file in os.listdir('outputs'):
+                            if file.startswith('part_'):
+                                bot.send_audio(message.chat.id, open(
+                                    f'outputs/{file}', 'rb'), reply_to_message_id=message.message_id)
+
+                        # # os.system(command)
+                        # xxx = subprocess.run(command)
+                        # print(xxx)
+                        # for file in os.listdir('outputs'):
+                        #     # if file.startswith(str(video_title)):
+                        #     if file.startswith('part_'):
+                        #         bot.send_audio(message.chat.id, open(
+                        #             file, 'rb'), reply_to_message_id=message.message_id)
+                        return  # For long audio
+
+                    # print(info['requested_downloads'][0])
+                    elif audio:
                         bot.send_audio(message.chat.id, open(
-                            info['requested_downloads'][0]['filepath'], 'rb'), reply_to_message_id=message.message_id)
+                            file_downloaded, 'rb'), reply_to_message_id=message.message_id)
 
                     else:
                         bot.send_video(message.chat.id, open(
-                            info['requested_downloads'][0]['filepath'], 'rb'), reply_to_message_id=message.message_id)
+                            file_downloaded, 'rb'), reply_to_message_id=message.message_id)
                     bot.delete_message(message.chat.id, msg.message_id)
                 except Exception as e:
                     bot.edit_message_text(
@@ -98,7 +135,7 @@ def download_video(message, url, audio=False, format_id="mp4"):
                 for file in os.listdir('outputs'):
                     if file.startswith(str(video_title)):
                         os.remove(f'outputs/{file}')
-    else: 
+    else:
         bot.reply_to(message, 'Invalid URL')
 
 
@@ -148,6 +185,34 @@ def download_audio_command(message):
     download_video(message, text, True)
 
 
+@bot.message_handler(commands=['what'])
+def test_split_mp3(message):
+    text = get_text(message)
+    # if not text:
+    #     bot.reply_to(
+    #         message, 'Invalid usage, use `/audio url`', parse_mode="MARKDOWN")
+    #     return
+
+    # log(message, text, 'audio')
+    file_downloaded = '/home/neko/work/my_bots/yt-dlp-telegram/outputs/1714399909323.mp3'
+    # commands = 'ffmpeg', f'-i {file_downloaded} -f segment -segment_time {config.SECONDS_IN_CHUNK} -c copy part_%03d.mp3'
+    commands = ['ffmpeg', '-i', file_downloaded,  '-f', 'segment', '-segment_time', str(config.SECONDS_IN_CHUNK),
+    '-c', 'copy' ,'outputs/part_%03d.mp3']
+
+    # os.system(command)
+    xxx = subprocess.run(commands)
+    # xxx = subprocess.run('ffmpeg',
+    #                      '-i',
+    #                      file_downloaded,
+    #                      '-f segment -segment_time 2400 -c copy part_%03d.mp3')
+    print(xxx)
+    for file in os.listdir('outputs'):
+        # if file.startswith(str(video_title)):
+        if file.startswith('part_'):
+            bot.send_audio(message.chat.id, open(
+                f'outputs/{file}', 'rb'), reply_to_message_id=message.message_id)
+
+
 @bot.message_handler(commands=['custom'])
 def custom(message):
     text = get_text(message)
@@ -176,7 +241,7 @@ def callback(call):
         url = get_text(call.message.reply_to_message)
         bot.delete_message(call.message.chat.id, call.message.message_id)
         download_video(call.message.reply_to_message, url,
-                       format_id=f"{call.data}+bestaudio")
+                       format_id=f"{call.data}+{config.AUDIO_CHOICE}")
     else:
         bot.answer_callback_query(call.id, "You didn't send the request")
 
