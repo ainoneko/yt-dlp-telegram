@@ -185,34 +185,6 @@ def download_audio_command(message):
     download_video(message, text, True)
 
 
-@bot.message_handler(commands=['what'])
-def test_split_mp3(message):
-    text = get_text(message)
-    # if not text:
-    #     bot.reply_to(
-    #         message, 'Invalid usage, use `/audio url`', parse_mode="MARKDOWN")
-    #     return
-
-    # log(message, text, 'audio')
-    file_downloaded = '/home/neko/work/my_bots/yt-dlp-telegram/outputs/1714399909323.mp3'
-    # commands = 'ffmpeg', f'-i {file_downloaded} -f segment -segment_time {config.SECONDS_IN_CHUNK} -c copy part_%03d.mp3'
-    commands = ['ffmpeg', '-i', file_downloaded,  '-f', 'segment', '-segment_time', str(config.SECONDS_IN_CHUNK),
-    '-c', 'copy' ,'outputs/part_%03d.mp3']
-
-    # os.system(command)
-    xxx = subprocess.run(commands)
-    # xxx = subprocess.run('ffmpeg',
-    #                      '-i',
-    #                      file_downloaded,
-    #                      '-f segment -segment_time 2400 -c copy part_%03d.mp3')
-    print(xxx)
-    for file in os.listdir('outputs'):
-        # if file.startswith(str(video_title)):
-        if file.startswith('part_'):
-            bot.send_audio(message.chat.id, open(
-                f'outputs/{file}', 'rb'), reply_to_message_id=message.message_id)
-
-
 @bot.message_handler(commands=['custom'])
 def custom(message):
     text = get_text(message)
