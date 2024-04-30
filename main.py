@@ -80,13 +80,7 @@ def download_video(message, url, audio=False, format_id="mp4"):
                     file_downloaded = info['requested_downloads'][0]['filepath']
                     file_size = os.path.getsize(file_downloaded)
                     if audio and file_size > config.MAX_FILESIZE_FOR_TG:
-                        # bot.edit_message_text(
-                        #     chat_id=message.chat.id, message_id=msg.message_id,
-                        #     text=f"AUDIO file is too big *{round(config.max_filesize / 1_000_000, 3)}MB* is more than *{round(config.max_filesize / 1_000_000)}MB*",
-                        #     parse_mode="MARKDOWN")
-
                         # Cut to smaller parts
-                        # command = f'ffmpeg -i {file_downloaded} -f segment -segment_time {config.SECONDS_IN_CHUNK} -c copy part_%03d.mp3'
                         commands = ['ffmpeg', '-i', file_downloaded, '-f', 'segment', '-segment_time',
                                     str(config.SECONDS_IN_CHUNK),
                                     '-c', 'copy', 'outputs/part_%03d.mp3']
@@ -97,18 +91,8 @@ def download_video(message, url, audio=False, format_id="mp4"):
                             if file.startswith('part_'):
                                 bot.send_audio(message.chat.id, open(
                                     f'outputs/{file}', 'rb'), reply_to_message_id=message.message_id)
-
-                        # # os.system(command)
-                        # xxx = subprocess.run(command)
-                        # print(xxx)
-                        # for file in os.listdir('outputs'):
-                        #     # if file.startswith(str(video_title)):
-                        #     if file.startswith('part_'):
-                        #         bot.send_audio(message.chat.id, open(
-                        #             file, 'rb'), reply_to_message_id=message.message_id)
                         return  # For long audio
 
-                    # print(info['requested_downloads'][0])
                     elif audio:
                         bot.send_audio(message.chat.id, open(
                             file_downloaded, 'rb'), reply_to_message_id=message.message_id)
