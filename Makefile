@@ -12,7 +12,7 @@ build:
 	docker build -t neko_yt_dlp_bot .
 
 run:
-	@echo Run the docker image
-	docker run neko_yt_dlp_bot
+	@echo Run the docker image, as daemon
+	docker run -d neko_yt_dlp_bot
 
 docker: build run
